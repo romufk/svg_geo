@@ -10,6 +10,9 @@ demo :
 
 https://romufk.github.io/svg_geo/
 
+Code source de demo dans le dossier docs
+
+
 ## 1. Objet du document
 
 Le présent document définit la convention **SVG_GEO** pour enrichir des fichiers **SVG** avec des données :
