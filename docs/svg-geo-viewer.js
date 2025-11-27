@@ -559,19 +559,24 @@ class SVGGeoViewer {
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         z-index: 10000;
         min-width: 200px;
+        max-width: 300px;
+        max-height: 80vh;
         padding: 4px 0;
         display: none;
+        overflow-y: auto;
+        overflow-x: hidden;
       }
 
       .svg-geo-context-menu-item {
-        padding: 8px 16px;
+        padding: 6px 14px;
         cursor: pointer;
-        font-size: 0.875rem;
+        font-size: 0.85rem;
         color: #333;
         display: flex;
         align-items: center;
         gap: 8px;
         transition: background 0.1s;
+        line-height: 1.3;
       }
 
       .svg-geo-context-menu-item:hover {
@@ -581,11 +586,11 @@ class SVGGeoViewer {
       .svg-geo-context-menu-separator {
         height: 1px;
         background: #e0e0e0;
-        margin: 4px 0;
+        margin: 3px 0;
       }
 
       .svg-geo-context-menu-submenu {
-        padding: 4px 0;
+        padding: 3px 0;
         margin-left: 8px;
         border-left: 2px solid #e0e0e0;
       }
@@ -1270,10 +1275,40 @@ class SVGGeoViewer {
     const menuItems = this._buildContextMenu(event);
     this.contextMenu.innerHTML = menuItems;
     
-    // Positionner le menu
-    this.contextMenu.style.left = event.pageX + 'px';
-    this.contextMenu.style.top = event.pageY + 'px';
+    // Obtenir les dimensions de la fenêtre
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    // Position initiale au curseur
+    let left = event.clientX;
+    let top = event.clientY;
+    
+    // Positionner le menu à la position initiale pour mesurer
+    this.contextMenu.style.left = left + 'px';
+    this.contextMenu.style.top = top + 'px';
     this.contextMenu.style.display = 'block';
+    
+    // Obtenir les dimensions réelles du menu après rendu
+    const menuWidth = this.contextMenu.offsetWidth;
+    const menuHeight = this.contextMenu.offsetHeight;
+    
+    // Ajuster si le menu dépasse à droite
+    if (left + menuWidth > windowWidth) {
+      left = Math.max(5, event.clientX - menuWidth);
+    }
+    
+    // Ajuster si le menu dépasse en bas
+    if (top + menuHeight > windowHeight) {
+      top = Math.max(5, event.clientY - menuHeight);
+    }
+    
+    // S'assurer des marges minimales
+    left = Math.max(5, Math.min(left, windowWidth - menuWidth - 5));
+    top = Math.max(5, Math.min(top, windowHeight - menuHeight - 5));
+    
+    // Appliquer la position finale
+    this.contextMenu.style.left = left + 'px';
+    this.contextMenu.style.top = top + 'px';
   }
 
   /**
