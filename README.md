@@ -6,6 +6,9 @@
 **Langue** : Français  
 
 ---
+demo :
+
+https://romufk.github.io/svg_geo/
 
 ## 1. Objet du document
 
