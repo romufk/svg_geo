@@ -295,6 +295,17 @@ class SVGGeoViewer {
       document.addEventListener('mousemove', (e) => this._onPanMove(e));
       document.addEventListener('mouseup', (e) => this._onPanEnd(e));
     }
+    
+    // Click sur SVG - un seul événement pour tout
+    if (this.options.enableModal) {
+      this.svgContainer.addEventListener('click', (e) => this._onSVGClick(e));
+    }
+    
+    // Hover sur SVG - un seul événement pour tout
+    if (this.options.showHoverInfo) {
+      this.svgContainer.addEventListener('mousemove', (e) => this._onSVGMouseMove(e));
+      this.svgContainer.addEventListener('mouseleave', () => this._onElementLeave());
+    }
 
     // Menu contextuel
     if (this.options.enableContextMenu) {
@@ -350,20 +361,7 @@ class SVGGeoViewer {
       }
 
       /* Hover Info */
-      .svg-geo-hover-info {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(8px);
-        border-top: 1px solid #e0e0e0;
-        padding: 6px 12px;
-        font-size: 0.8rem;
-        color: #333;
-        min-height: 32px;
-        display: flex;
-        align-items: center;
-        box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
-        flex-shrink: 0;
-      }
-
+     
       .svg-geo-hover-info:empty::before {
         content: attr(data-placeholder);
         color: #999;
@@ -426,12 +424,12 @@ class SVGGeoViewer {
 
       .svg-geo-modal-content {
         background: white;
-        border-radius: 6px;
-        max-width: 600px;
-        max-height: 70vh;
-        width: 90%;
+        border-radius: 8px;
+        max-width: 1100px;
+        max-height: 85vh;
+        width: 95%;
         overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
         display: flex;
         flex-direction: column;
       }
@@ -467,10 +465,7 @@ class SVGGeoViewer {
         transition: all 0.2s;
       }
 
-      .svg-geo-modal-close:hover {
-        background: #e0e0e0;
-        color: #333;
-      }
+
 
       .svg-geo-modal-copy-btn {
         background: transparent;
@@ -487,42 +482,85 @@ class SVGGeoViewer {
         transition: all 0.2s;
       }
 
-      .svg-geo-modal-copy-btn:hover {
-        background: #f5f5f5;
-        border-color: #999;
-        transform: scale(1.05);
-      }
 
       .svg-geo-modal-body {
-        padding: 12px 14px;
+        padding: 0;
         overflow-y: auto;
         flex: 1;
+        background: white;
       }
 
-      .svg-geo-property {
-        margin-bottom: 8px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #f0f0f0;
+      .svg-geo-modal-body > div {
+        display: block;
       }
 
-      .svg-geo-property:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
-      }
-
-      .svg-geo-property-label {
-        font-weight: 600;
-        color: #666;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        margin-bottom: 2px;
-      }
-
-      .svg-geo-property-value {
-        color: #333;
+      .svg-geo-modal-body h4,
+      .svg-geo-modal-body h5 {
+        padding: 12px 20px;
+        margin: 16px 0 0 0;
+        background: #e8eaed;
+        color: #3c4043;
         font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-top: 1px solid #dadce0;
+        border-bottom: 1px solid #dadce0;
+      }
+
+      .svg-geo-modal-body h4:first-child,
+      .svg-geo-modal-body h5:first-child {
+        margin-top: 0;
+        border-top: none;
+      }
+
+      .svg-geo-property-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 0;
+      }
+
+      .svg-geo-row {
+        background: white;
+        transition: background 0.15s ease;
+      }
+
+      .svg-geo-row-even {
+        background: #f8f9fa;
+      }
+
+
+
+      .svg-geo-label {
+        padding: 12px 20px;
+        font-weight: 600;
+        color: #6b7280;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: #f9fafb;
+        white-space: nowrap;
+        border-right: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb;
+        width: 15%;
+      }
+
+      .svg-geo-value {
+        padding: 12px 20px;
+        color: #111827;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        font-weight: 500;
+        border-right: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb;
+        width: 35%;
+      }
+
+      .svg-geo-value:last-child {
+        border-right: none;
       }
 
       .svg-geo-badge {
@@ -540,14 +578,11 @@ class SVGGeoViewer {
       .svg-geo-badge-ruined { background: #6c757d; color: white; }
       .svg-geo-badge-unknown { background: #e2e3e5; color: #383d41; }
 
-      /* Élément SVG interactif */
-      [data-class]:hover {
-        filter: brightness(1.2);
-        cursor: pointer;
-      }
 
-      [data-class] {
+
+      [data-class], [data-ref] {
         transition: filter 0.2s;
+        cursor: default;
       }
 
       /* Menu contextuel */
@@ -579,9 +614,6 @@ class SVGGeoViewer {
         line-height: 1.3;
       }
 
-      .svg-geo-context-menu-item:hover {
-        background: #f0f0f0;
-      }
 
       .svg-geo-context-menu-separator {
         height: 1px;
@@ -616,16 +648,7 @@ class SVGGeoViewer {
         z-index: 9999;
       }
 
-      .svg-geo-viewer.fullscreen .svg-geo-modal.bottom-right .svg-geo-modal-content {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        top: auto;
-        left: auto;
-        margin: 0;
-        max-width: 400px;
-        max-height: 60vh;
-      }
+
 
       /* Pan & Zoom */
       .svg-geo-svg-container.panning {
@@ -633,7 +656,11 @@ class SVGGeoViewer {
       }
 
       .svg-geo-svg-container.pannable {
-        cursor: grab;
+        cursor: default;
+      }
+      
+      .svg-geo-svg-container {
+        cursor: default !important;
       }
     `;
     document.head.appendChild(style);
@@ -686,6 +713,9 @@ class SVGGeoViewer {
     // Extraire les métadonnées
     this._extractMetadata();
 
+    // Isoler les styles du SVG pour éviter les conflits avec la page
+    this._isolateSVGStyles();
+
     // Injecter le SVG dans le conteneur
     this.svgContainer.innerHTML = '';
     this.svgContainer.appendChild(this.svgElement);
@@ -706,6 +736,41 @@ class SVGGeoViewer {
   }
 
   /**
+   * Isole les styles du SVG pour éviter les conflits avec les autres éléments de la page
+   * @private
+   */
+  _isolateSVGStyles() {
+    // Ajouter un ID unique au SVG pour cibler les styles
+    const uniqueId = `svg-geo-${this.container.id}`;
+    this.svgElement.setAttribute('id', uniqueId);
+
+    // Trouver toutes les balises <style> dans le SVG
+    const styleElements = this.svgElement.querySelectorAll('style');
+    
+    styleElements.forEach(styleEl => {
+      let css = styleEl.textContent;
+      
+      // Supprimer UNIQUEMENT les règles :hover pour éviter les conflits
+      css = css.replace(/([^}]*):hover([^{]*\{[^}]*\})/g, '');
+      
+      // Préfixer tous les sélecteurs CSS avec l'ID unique du SVG
+      css = css.replace(/([^\r\n,{}]+)(,(?=[^}]*{)|\s*{)/g, (match, selector, separator) => {
+        selector = selector.trim();
+        
+        // Ne pas préfixer les @-rules
+        if (selector.startsWith('@')) {
+          return match;
+        }
+        
+        // Préfixer avec #uniqueId et ajouter :not(:hover) pour forcer les styles même au survol
+        return `#${uniqueId} ${selector}${separator}`;
+      });
+      
+      styleEl.textContent = css;
+    });
+  }
+
+  /**
    * Extrait les métadonnées du SVG
    * @private
    */
@@ -715,21 +780,22 @@ class SVGGeoViewer {
     if (docMetadataElement) {
       try {
         this.documentMetadata = JSON.parse(docMetadataElement.textContent.trim());
+        
+        // Extraire les couches depuis SVG_GEO_DOCUMENT (pas SVG_GEO_DATA)
+        if (this.documentMetadata && this.documentMetadata.layers) {
+          this.layers = this.documentMetadata.layers;
+          console.log('🎨 Couches détectées:', Object.keys(this.layers));
+        }
       } catch (e) {
         console.error('Failed to parse SVG_GEO_DOCUMENT metadata:', e);
       }
     }
 
-    // Données globales
+    // Données globales (business data)
     const globalDataElement = this.svgElement.querySelector('metadata#SVG_GEO_DATA');
     if (globalDataElement) {
       try {
         this.globalData = JSON.parse(globalDataElement.textContent.trim());
-        
-        // Extraire les couches si présentes
-        if (this.globalData.layers) {
-          this.layers = this.globalData.layers;
-        }
       } catch (e) {
         console.error('Failed to parse SVG_GEO_DATA metadata:', e);
       }
@@ -741,20 +807,160 @@ class SVGGeoViewer {
    * @private
    */
   _attachEvents() {
-    const interactiveElements = this.svgElement.querySelectorAll('[data-class]');
+    // Sélectionner les éléments avec data-class OU data-ref pour compter
+    const interactiveElements = this.svgElement.querySelectorAll('[data-class], [data-ref]');
+    console.log(`📌 ${interactiveElements.length} éléments interactifs détectés`);
+    
+    if (interactiveElements.length === 0) {
+      console.warn('⚠️ Aucun élément interactif trouvé! Vérifiez que les éléments ont data-class ou data-ref');
+    }
+    
+    // Les événements sont maintenant attachés dans _initInteractions()
+    // sur le conteneur SVG, pas sur chaque élément individuellement
+  }
 
-    interactiveElements.forEach(element => {
-      // Hover
-      if (this.options.showHoverInfo) {
-        element.addEventListener('mouseenter', (e) => this._onElementHover(e, element));
-        element.addEventListener('mouseleave', () => this._onElementLeave());
+  /**
+   * Gestion du clic sur le SVG
+   * @private
+   */
+  _onSVGClick(event) {
+    console.log('🖱️ Click détecté sur SVG à position:', event.clientX, event.clientY);
+    
+    // Ne pas afficher la modal si on a panné
+    if (this.hasPanned) {
+      console.log('⚠️ Click ignoré car pan détecté (hasPanned=true)');
+      return;
+    }
+    
+    // Convertir les coordonnées écran en coordonnées SVG avec la matrice de transformation
+    let svgX, svgY;
+    
+    if (this.svgElement.createSVGPoint) {
+      // Méthode standard SVG
+      const pt = this.svgElement.createSVGPoint();
+      pt.x = event.clientX;
+      pt.y = event.clientY;
+      
+      // Obtenir la matrice de transformation inverse
+      const svgMatrix = this.svgElement.getScreenCTM();
+      if (svgMatrix) {
+        const transformedPoint = pt.matrixTransform(svgMatrix.inverse());
+        svgX = transformedPoint.x;
+        svgY = transformedPoint.y;
+      } else {
+        console.error('❌ Impossible d\'obtenir la matrice de transformation');
+        return;
       }
+    } else {
+      console.error('❌ createSVGPoint non supporté');
+      return;
+    }
+    
+    console.log('📍 Coordonnées clic (client):', event.clientX, event.clientY);
+    
+    // Chercher tous les éléments interactifs
+    const interactiveElements = this.svgElement.querySelectorAll('[data-class], [data-ref]');
+    console.log(`🔍 Test de ${interactiveElements.length} éléments`);
+    
+    let target = null;
+    let minArea = Infinity; // Prendre l'élément le plus petit (le plus spécifique)
+    let foundCount = 0;
+    
+    // Utiliser getBoundingClientRect() qui donne les coordonnées dans le viewport
+    for (const el of interactiveElements) {
+      try {
+        const rect = el.getBoundingClientRect();
+        
+        // Vérifier si le clic est dans le rectangle (coordonnées écran)
+        if (event.clientX >= rect.left && event.clientX <= rect.right &&
+            event.clientY >= rect.top && event.clientY <= rect.bottom) {
+          
+          foundCount++;
+          const area = rect.width * rect.height;
+          
+          // Debug: afficher les 3 premiers éléments trouvés
+          if (foundCount <= 3) {
+            console.log(`   ✓ Trouvé: ${el.getAttribute('id') || el.getAttribute('data-ref')}: rect=(${rect.left.toFixed(0)},${rect.top.toFixed(0)},${rect.width.toFixed(0)},${rect.height.toFixed(0)}), area=${area.toFixed(0)}`);
+          }
+          
+          // Prendre l'élément avec la plus petite surface (plus précis)
+          if (area < minArea) {
+            minArea = area;
+            target = el;
+          }
+        }
+      } catch (e) {
+        // Ignorer les éléments sans rect
+      }
+    }
+    
+    console.log(`📊 ${foundCount} élément(s) sous le curseur`);
+    
+    if (target) {
+      console.log('✅ Élément interactif trouvé:', {
+        tag: target.tagName,
+        id: target.getAttribute('id'),
+        dataClass: target.getAttribute('data-class'),
+        dataRef: target.getAttribute('data-ref')
+      });
+      this._showModal(target);
+    } else {
+      console.log('⚠️ Aucun élément interactif sous le curseur');
+    }
+  }
 
-      // Click pour modal
-      if (this.options.enableModal) {
-        element.addEventListener('click', (e) => this._onElementClick(e, element));
+  /**
+   * Gestion du mouvement de souris sur le SVG
+   * @private
+   */
+  _onSVGMouseMove(event) {
+    // Vérifier que le SVG est chargé
+    if (!this.svgElement) return;
+    
+    // Chercher l'élément interactif sous le curseur en utilisant getBoundingClientRect
+    const interactiveElements = this.svgElement.querySelectorAll('[data-class], [data-ref]');
+    let target = null;
+    let minArea = Infinity;
+    
+    for (const el of interactiveElements) {
+      try {
+        const rect = el.getBoundingClientRect();
+        if (event.clientX >= rect.left && event.clientX <= rect.right &&
+            event.clientY >= rect.top && event.clientY <= rect.bottom) {
+          const area = rect.width * rect.height;
+          if (area < minArea) {
+            minArea = area;
+            target = el;
+          }
+        }
+      } catch (e) {
+        // Ignorer les éléments sans rect
       }
-    });
+    }
+    
+    if (target !== this.currentHover) {
+      if (this.currentHover) {
+        this._onElementLeave();
+      }
+      if (target) {
+        this._onElementHover(event, target);
+      }
+    }
+  }
+
+  /**
+   * Trouve l'élément parent interactif (avec data-class ou data-ref)
+   * @private
+   */
+  _findInteractiveParent(element) {
+    let current = element;
+    while (current && current !== this.svgElement) {
+      if (current.hasAttribute && (current.hasAttribute('data-class') || current.hasAttribute('data-ref'))) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+    return null;
   }
 
   /**
@@ -796,23 +1002,22 @@ class SVGGeoViewer {
     this.hoverInfo.innerHTML = '';
   }
 
-  /**
-   * Gestion du clic sur un élément
-   * @private
-   */
-  _onElementClick(event, element) {
-    event.stopPropagation();
-    // Ne pas afficher la modal si on a panné (déplacement)
-    if (this.hasPanned) return;
-    this._showModal(element);
-  }
+
 
   /**
    * Affiche la modal avec les données d'un élément
    * @private
    */
   _showModal(element) {
+    console.log('🪟 Préparation de la modal pour:', element);
+    
+    if (!this.modal) {
+      console.error('❌ Élément modal non trouvé!');
+      return;
+    }
+    
     const data = this._extractElementData(element);
+    console.log('📊 Données extraites:', data);
     
     const modalContent = `
       <div class="svg-geo-modal-content">
@@ -834,6 +1039,8 @@ class SVGGeoViewer {
 
     this.modal.innerHTML = modalContent;
     this.modal.style.display = 'flex';
+    
+    console.log('✅ Modal affichée');
 
     // Fermeture au clic sur le fond
     this.modal.onclick = (e) => {
@@ -875,10 +1082,19 @@ class SVGGeoViewer {
    */
   _extractElementData(element) {
     const dataClass = element.getAttribute('data-class');
+    const dataRef = element.getAttribute('data-ref');
+    const id = element.getAttribute('id');
+    
+    console.log('🔍 Extraction des données pour:', {
+      id: id,
+      dataRef: dataRef,
+      dataClass: dataClass
+    });
+    
     const data = {
       title: this.t(dataClass || 'Element'),
-      id: element.getAttribute('id'),
-      ref: element.getAttribute('data-ref'),
+      id: id,
+      ref: dataRef,
       class: dataClass,
       level: element.getAttribute('data-level'),
       layer: element.getAttribute('data-layer'),
@@ -891,14 +1107,26 @@ class SVGGeoViewer {
     if (propsStr) {
       try {
         data.props = this._filterFields(JSON.parse(propsStr));
+        console.log('  ✓ data-props trouvées:', Object.keys(data.props).length, 'propriétés');
       } catch (e) {
-        console.error('Failed to parse data-props:', e);
+        console.error('  ❌ Erreur parse data-props:', e);
       }
+    } else {
+      console.log('  ⚠️ Pas de data-props sur l\'élément');
     }
 
     // Récupérer les données globales si disponibles (filtrées)
-    if (data.ref && this.globalData && this.globalData[data.ref]) {
-      data.globalData = this._filterFields(this.globalData[data.ref]);
+    if (dataRef && this.globalData) {
+      if (this.globalData[dataRef]) {
+        data.globalData = this._filterFields(this.globalData[dataRef]);
+        console.log('  ✓ Données globales trouvées pour', dataRef, ':', Object.keys(data.globalData).length, 'propriétés');
+        console.log('    Clés:', Object.keys(data.globalData));
+      } else {
+        console.log('  ⚠️ Aucune donnée globale pour la ref:', dataRef);
+        console.log('    Clés disponibles dans globalData:', Object.keys(this.globalData).slice(0, 5));
+      }
+    } else {
+      console.log('  ⚠️ Pas de data-ref ou pas de globalData');
     }
 
     return data;
@@ -909,34 +1137,55 @@ class SVGGeoViewer {
    * @private
    */
   _renderElementData(data) {
-    let html = '';
+    // Réinitialiser le compteur de lignes pour l'alternance
+    this._rowIndex = 0;
+    
+    let html = '<table class="svg-geo-property-table">';
 
     // Informations de base
-    html += '<div style="margin-bottom: 12px;">';
-    if (data.id) html += this._renderProperty(this.t('ID'), data.id);
-    if (data.ref) html += this._renderProperty(this.t('Reference'), data.ref);
-    if (data.class) html += this._renderProperty(this.t('Class'), this.t(data.class));
-    if (data.level) html += this._renderProperty(this.t('Level of detail'), data.level);
-    if (data.layer) html += this._renderProperty(this.t('Layer'), data.layer);
-    html += '</div>';
+    const basicProps = [];
+    if (data.id) basicProps.push({ label: this.t('ID'), value: data.id });
+    if (data.ref) basicProps.push({ label: this.t('Reference'), value: data.ref });
+    if (data.class) basicProps.push({ label: this.t('Class'), value: this.t(data.class) });
+    if (data.level) basicProps.push({ label: this.t('Level of detail'), value: data.level });
+    if (data.layer) basicProps.push({ label: this.t('Layer'), value: data.layer });
+    
+    // Créer les lignes pour les propriétés de base
+    for (let i = 0; i < basicProps.length; i += 2) {
+      const evenClass = this._rowIndex % 2 === 0 ? ' svg-geo-row-even' : '';
+      html += `<tr class="svg-geo-row${evenClass}">`;
+      html += this._renderProperty(basicProps[i].label, basicProps[i].value);
+      if (i + 1 < basicProps.length) {
+        html += this._renderProperty(basicProps[i + 1].label, basicProps[i + 1].value);
+      } else {
+        html += '<td class="svg-geo-label"></td><td class="svg-geo-value"></td>';
+      }
+      html += '</tr>';
+      this._rowIndex++;
+    }
+
+    html += '</table>';
 
     // Données globales
     if (data.globalData) {
-      html += `<h4 style="margin-top: 12px; margin-bottom: 8px; color: #666; font-size: 0.85rem;">${this.t('Global data')}</h4>`;
+      html += '<table class="svg-geo-property-table">';
       html += this._renderObjectProperties(data.globalData);
+      html += '</table>';
     }
 
     // Propriétés locales
     if (Object.keys(data.props).length > 0) {
       html += `<h4 style="margin-top: 12px; margin-bottom: 8px; color: #666; font-size: 0.85rem;">${this.t('Properties')}</h4>`;
+      html += '<table class="svg-geo-property-table">';
       html += this._renderObjectProperties(data.props);
+      html += '</table>';
     }
 
     return html;
   }
 
   /**
-   * Rendu d'une propriété
+   * Rendu d'une propriété (cellule)
    * @private
    */
   _renderProperty(label, value) {
@@ -957,10 +1206,8 @@ class SVGGeoViewer {
     }
 
     return `
-      <div class="svg-geo-property">
-        <div class="svg-geo-property-label">${label}</div>
-        <div class="svg-geo-property-value">${displayValue}</div>
-      </div>
+        <td class="svg-geo-label">${label}</td>
+        <td class="svg-geo-value">${displayValue}</td>
     `;
   }
 
@@ -968,17 +1215,70 @@ class SVGGeoViewer {
    * Rendu des propriétés d'un objet
    * @private
    */
-  _renderObjectProperties(obj) {
+  _renderObjectProperties(obj, depth = 0) {
     let html = '';
-    for (const [key, value] of Object.entries(obj)) {
-      if (value !== null && value !== undefined) {
+    const entries = Object.entries(obj).filter(([key, value]) => value !== null && value !== undefined);
+    
+    let rowBuffer = [];
+    
+    for (const [key, value] of entries) {
+      // Si c'est un objet/tableau, le déplier récursivement
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        // Vider le buffer avant d'afficher le titre
+        if (rowBuffer.length > 0) {
+          html += this._flushRowBuffer(rowBuffer);
+          rowBuffer = [];
+        }
+        
+        // Afficher le titre de la sous-section
+        if (depth === 0) {
+          html += `<h5>${this.t(key)}</h5>`;
+        }
+        // Déplier les propriétés de l'objet
+        html += this._renderObjectProperties(value, depth + 1);
+      } else {
         // Convertir camelCase en espaces et capitaliser
         const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-        // Traduire le label
         const translatedLabel = this.t(label);
-        html += this._renderProperty(translatedLabel, value);
+        
+        // Ajouter au buffer
+        rowBuffer.push({ label: translatedLabel, value: value });
+        
+        // Si on a 2 propriétés, créer une ligne
+        if (rowBuffer.length === 2) {
+          html += this._flushRowBuffer(rowBuffer);
+          rowBuffer = [];
+        }
       }
     }
+    
+    // Vider le buffer restant
+    if (rowBuffer.length > 0) {
+      html += this._flushRowBuffer(rowBuffer);
+    }
+    
+    return html;
+  }
+
+  /**
+   * Crée une ligne de propriétés à partir du buffer
+   * @private
+   */
+  _flushRowBuffer(rowBuffer) {
+    const evenClass = this._rowIndex % 2 === 0 ? ' svg-geo-row-even' : '';
+    let html = `<tr class="svg-geo-row${evenClass}">`;
+    
+    rowBuffer.forEach(item => {
+      html += this._renderProperty(item.label, item.value);
+    });
+    
+    // Si une seule propriété, ajouter des cellules vides pour équilibrer
+    if (rowBuffer.length === 1) {
+      html += '<td class="svg-geo-label"></td><td class="svg-geo-value"></td>';
+    }
+    
+    html += '</tr>';
+    this._rowIndex++;
     return html;
   }
 
@@ -999,22 +1299,34 @@ class SVGGeoViewer {
    * @param {boolean} visible - Visibilité (optionnel, si absent = toggle auto)
    */
   toggleLayer(layerKey, visible) {
-    const elements = this.svgElement.querySelectorAll(`[data-layer="${layerKey}"]`);
+    console.log('toggleLayer called with:', layerKey, 'visible:', visible);
+    
+    // Chercher par data-layer (les noms sont maintenant directement en français depuis la DB)
+    let layerGroups = this.svgElement.querySelectorAll(`[data-layer="${layerKey}"]`);
+    console.log('Found layer groups/elements:', layerGroups.length);
+    
+    if (layerGroups.length === 0) {
+      console.warn('⚠️ No elements found for layer "' + layerKey + '"');
+      console.log('Available layers:', Object.keys(this.layers));
+      this._hideContextMenu();
+      return;
+    }
     
     // Si visible n'est pas défini, détecter l'état actuel et inverser
     if (visible === undefined) {
-      const firstElement = elements[0];
-      if (firstElement) {
-        const currentlyVisible = firstElement.style.display !== 'none';
-        visible = !currentlyVisible;
-      } else {
-        visible = true; // Par défaut, rendre visible
-      }
+      const firstElement = layerGroups[0];
+      const currentlyVisible = firstElement.style.display !== 'none';
+      visible = !currentlyVisible;
+      console.log('Current visibility:', currentlyVisible, '-> new:', visible);
     }
     
-    elements.forEach(element => {
+    // Appliquer le display sur tous les éléments trouvés
+    layerGroups.forEach(element => {
       element.style.display = visible ? '' : 'none';
+      console.log('  -', element.tagName, 'class:', element.getAttribute('class'), 'id:', element.id || '(no id)', 'set to:', visible ? 'visible' : 'hidden');
     });
+    
+    console.log('✅ Layer toggle complete');
     
     // Masquer le menu contextuel après toggle
     this._hideContextMenu();
@@ -1078,10 +1390,26 @@ class SVGGeoViewer {
   _onWheel(event) {
     event.preventDefault();
     
-    const delta = event.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(10, this.zoom * delta));
+    // Obtenir la position de la souris dans le conteneur
+    const rect = this.svgContainer.getBoundingClientRect();
+    const mouseX = event.clientX - rect.left;
+    const mouseY = event.clientY - rect.top;
     
-    this.setZoom(newZoom);
+    // Calculer la position de la souris dans l'espace SVG avant le zoom
+    const svgX = (mouseX - this.panX) / this.zoom;
+    const svgY = (mouseY - this.panY) / this.zoom;
+    
+    // Appliquer le zoom
+    const delta = event.deltaY > 0 ? 0.9 : 1.1;
+    const oldZoom = this.zoom;
+    const newZoom = Math.max(0.1, Math.min(10, this.zoom * delta));
+    this.zoom = newZoom;
+    
+    // Ajuster le pan pour que le point sous la souris reste au même endroit
+    this.panX = mouseX - svgX * this.zoom;
+    this.panY = mouseY - svgY * this.zoom;
+    
+    this._applyTransform();
     this.emit('zoom', { zoom: this.zoom });
   }
 
@@ -1136,11 +1464,18 @@ class SVGGeoViewer {
     this.svgContainer.classList.remove('panning');
     this.emit('pan', { x: this.panX, y: this.panY });
     
-    // Réinitialiser hasPanned après un délai SEULEMENT si on a effectué un déplacement
-    if (this.hasPanned) {
+    // Réinitialiser hasPanned immédiatement si on n'a pas bougé
+    // Sinon attendre un tout petit délai pour éviter le click après un pan
+    if (!this.hasPanned) {
+      // Pas de mouvement, on peut cliquer immédiatement
+      console.log('✅ Pas de pan, clic autorisé');
+    } else {
+      // Il y a eu un mouvement, on bloque les clics pendant 100ms
+      console.log('⏳ Pan détecté, blocage temporaire des clics');
       setTimeout(() => {
         this.hasPanned = false;
-      }, 300);
+        console.log('✅ hasPanned réinitialisé, clics autorisés');
+      }, 100);
     }
   }
 
@@ -1151,8 +1486,9 @@ class SVGGeoViewer {
   _applyTransform() {
     if (!this.svgElement) return;
     
+    // Utiliser transform-origin: 0 0 pour un calcul plus simple
+    this.svgElement.style.transformOrigin = '0 0';
     this.svgElement.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
-    this.svgElement.style.transformOrigin = 'top left';
   }
 
   /**
@@ -1192,64 +1528,31 @@ class SVGGeoViewer {
         setTimeout(() => this._fitToView(), 100);
         return;
       }
-      
-      let svgWidth, svgHeight, svgX = 0, svgY = 0;
-      
-      // Utiliser le viewBox s'il existe, sinon calculer le BBox de tous les éléments
-      const viewBox = this.svgElement.getAttribute('viewBox');
-      if (viewBox) {
-        const parts = viewBox.split(/\s+/).map(parseFloat);
-        svgX = parts[0];
-        svgY = parts[1];
-        svgWidth = parts[2];
-        svgHeight = parts[3];
-      } else {
-        // Calculer le BBox global de tous les éléments
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        const allElements = this.svgElement.querySelectorAll('*');
-        
-        for (const el of allElements) {
-          if (el.getBBox && typeof el.getBBox === 'function') {
-            try {
-              const bbox = el.getBBox();
-              if (bbox.width > 0 && bbox.height > 0) {
-                minX = Math.min(minX, bbox.x);
-                minY = Math.min(minY, bbox.y);
-                maxX = Math.max(maxX, bbox.x + bbox.width);
-                maxY = Math.max(maxY, bbox.y + bbox.height);
-              }
-            } catch (e) {}
-          }
-        }
-        
-        if (isFinite(minX)) {
-          svgX = minX;
-          svgY = minY;
-          svgWidth = maxX - minX;
-          svgHeight = maxY - minY;
-        } else {
-          // Fallback si aucun élément trouvé
-          svgX = 0;
-          svgY = 0;
-          svgWidth = parseFloat(this.svgElement.getAttribute('width')) || 800;
-          svgHeight = parseFloat(this.svgElement.getAttribute('height')) || 600;
-        }
+      // Mesurer la taille réelle rendue du SVG
+      const svgRect = this.svgElement.getBoundingClientRect();
+      const baseWidth = svgRect.width;
+      const baseHeight = svgRect.height;
+
+      if (baseWidth === 0 || baseHeight === 0) {
+        console.warn('SVG sans dimensions rendues, _fitToView() réessayera dans 100ms');
+        setTimeout(() => this._fitToView(), 100);
+        return;
       }
-      
+
       // Calculer le zoom pour que le SVG tienne dans le conteneur avec marges
-      const margin = 40; // Marge de 40px
-      const scaleX = (containerWidth - margin * 2) / svgWidth;
-      const scaleY = (containerHeight - margin * 2) / svgHeight;
+      const margin = 20; // Marge de 20px
+      const availableWidth = containerWidth - margin * 2;
+      const availableHeight = containerHeight - margin * 2;
+      const scaleX = availableWidth / baseWidth;
+      const scaleY = availableHeight / baseHeight;
       this.zoom = Math.min(scaleX, scaleY, 1); // Ne pas zoomer au-delà de 100%
-      
-      // Centrer le SVG en tenant compte de l'offset
-      const scaledWidth = svgWidth * this.zoom;
-      const scaledHeight = svgHeight * this.zoom;
-      const offsetX = svgX * this.zoom;
-      const offsetY = svgY * this.zoom;
-      
-      this.panX = (containerWidth - scaledWidth) / 2 - offsetX;
-      this.panY = (containerHeight - scaledHeight) / 2 - offsetY;
+
+      // Centrer le SVG en utilisant ses dimensions réelles
+      const scaledWidth = baseWidth * this.zoom;
+      const scaledHeight = baseHeight * this.zoom;
+
+      this.panX = (containerWidth - scaledWidth) / 2;
+      this.panY = (containerHeight - scaledHeight) / 2;
       
       this._applyTransform();
     } catch (error) {
@@ -1349,11 +1652,15 @@ class SVGGeoViewer {
       
       const sortedLayers = Object.entries(this.layers).sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
       sortedLayers.forEach(([layerKey, layer]) => {
-        const lang = this.documentMetadata?.document?.lang || this.options.locale;
-        const label = layer.label?.[lang] || layer.label?.en || layerKey;
-        const visible = this.svgElement.querySelector(`[data-layer="${layerKey}"]`)?.style.display !== 'none';
+        // Utiliser directement le nom de la couche sans traduction
+        const label = layerKey;
+        const element = this.svgElement.querySelector(`[data-layer="${layerKey}"]`);
+        const visible = element?.style.display !== 'none';
         
-        html += `<div class="svg-geo-context-menu-item" onclick="event.stopPropagation(); window.svgGeoViewerInstances?.get('${this.container.id}')?.toggleLayer('${layerKey}')">
+        // Échapper les guillemets dans layerKey pour éviter les erreurs
+        const escapedLayerKey = layerKey.replace(/'/g, "\\'");
+        
+        html += `<div class="svg-geo-context-menu-item" onclick="event.stopPropagation(); window.svgGeoViewerInstances?.get('${this.container.id}')?.toggleLayer('${escapedLayerKey}')">
           <input type="checkbox" class="svg-geo-context-menu-checkbox" ${visible ? 'checked' : ''} style="pointer-events: none;">
           ${label}
         </div>`;
@@ -1424,8 +1731,31 @@ class SVGGeoViewer {
    * @private
    */
   _getElementsUnderCursor(event) {
-    const elements = document.elementsFromPoint(event.clientX, event.clientY);
-    return elements.filter(el => el.hasAttribute('data-class'));
+    if (!this.svgElement) return [];
+    
+    const interactiveElements = this.svgElement.querySelectorAll('[data-class], [data-ref]');
+    const found = [];
+    
+    for (const el of interactiveElements) {
+      try {
+        const rect = el.getBoundingClientRect();
+        if (event.clientX >= rect.left && event.clientX <= rect.right &&
+            event.clientY >= rect.top && event.clientY <= rect.bottom) {
+          found.push(el);
+        }
+      } catch (e) {
+        // Ignorer les éléments sans rect
+      }
+    }
+    
+    // Trier par surface (du plus petit au plus grand) pour avoir les plus précis en premier
+    return found.sort((a, b) => {
+      const rectA = a.getBoundingClientRect();
+      const rectB = b.getBoundingClientRect();
+      const areaA = rectA.width * rectA.height;
+      const areaB = rectB.width * rectB.height;
+      return areaA - areaB;
+    });
   }
 
   /**
@@ -1490,11 +1820,6 @@ class SVGGeoViewer {
     this.isFullscreen = true;
     this.container.classList.add('fullscreen');
     
-    // Ajuster la position de la modal si configuré
-    if (this.modal && this.options.fullscreenModal === 'bottom-right') {
-      this.modal.classList.add('bottom-right');
-    }
-    
     this.emit('fullscreen', { fullscreen: true });
   }
 
@@ -1512,10 +1837,6 @@ class SVGGeoViewer {
     
     this.isFullscreen = false;
     this.container.classList.remove('fullscreen');
-    
-    if (this.modal) {
-      this.modal.classList.remove('bottom-right');
-    }
     
     this.emit('fullscreen', { fullscreen: false });
   }
@@ -1871,7 +2192,6 @@ class SVGGeoViewer {
 
     // Données globales
     if (data.globalData) {
-      html += '<h2>' + this.t('Global data') + '</h2>';
       html += this._generateHTMLProperties(data.globalData);
     }
 
@@ -2302,6 +2622,11 @@ class SVGGeoViewer {
     this.container.innerHTML = '';
     this.eventListeners = {};
   }
+}
+
+// Export global pour utilisation dans le navigateur
+if (typeof window !== 'undefined') {
+  window.SVGGeoViewer = SVGGeoViewer;
 }
 
 // Export pour utilisation en module
