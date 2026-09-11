@@ -1,7 +1,7 @@
 /**
  * SVG_GEO Viewer Library
- * Version: 0.2.0
- * Date: 2025-11-27
+ * Version: 0.2.2
+ * Date: 2026-05-01
  * 
  * Bibliothèque JavaScript pour charger, décoder et afficher des fichiers SVG_GEO
  * avec gestion des couches, interactions et modales.
@@ -44,9 +44,10 @@ class SVGGeoViewer {
     this.panStartX = 0;
     this.panStartY = 0;
     this.isFullscreen = false;
+    this.savedIframeStyles = null; // Pour sauvegarder les styles de l'iframe parent
 
     // Système d'événements
-    this.eventListeners = {};
+    this.eventListeners = {}
 
     // Initialiser le système de traduction
     this._initTranslations();
@@ -77,7 +78,7 @@ class SVGGeoViewer {
     this.defaultTranslations = {
       // UI Elements
       'Layers': 'Couches',
-      'Hover over an element to see information': 'Survolez un élément pour voir ses informations',
+      'Hover over an element to see information': "Survolez un élément pour voir ses informations ou click droit pour le menu",
       
       // Classes CityGML/IFC
       'Building': 'Bâtiment',
@@ -181,6 +182,7 @@ class SVGGeoViewer {
       'Fullscreen': 'Plein écran',
       'Exit Fullscreen': 'Quitter plein écran',
       'Save as SVG': 'Enregistrer en SVG',
+      'Save as PNG': 'Enregistrer en PNG',
       'Copy to Clipboard': 'Copier dans le presse-papier',
       'Copy as Image': 'Copier comme image',
       'Elements under cursor': 'Éléments sous le curseur',
@@ -190,6 +192,9 @@ class SVGGeoViewer {
       'Optimized for Word/PowerPoint': 'Optimisé pour Word/PowerPoint',
       'Failed to copy to clipboard': 'Échec de la copie dans le presse-papier',
       'Failed to copy image': 'Échec de la copie de l\'image',
+      'Failed to download image': 'Échec du téléchargement de l\'image',
+      'PNG downloaded': 'PNG téléchargé',
+      'Clipboard not available': 'Presse-papier non disponible',
       'Copy Data': 'Copier les données',
       'Copy All Data': 'Copier toutes les données',
       'Data copied to clipboard!': 'Données copiées dans le presse-papier !',
@@ -250,6 +255,9 @@ class SVGGeoViewer {
     // Créer la structure HTML
     this.container.innerHTML = `
       <div class="svg-geo-content">
+        <button class="svg-geo-fullscreen-btn" title="Plein écran">
+          <i class="fas fa-expand"></i>
+        </button>
         <div class="svg-geo-svg-container"></div>
         ${this.options.showHoverInfo ? '<div class="svg-geo-hover-info"></div>' : ''}
       </div>
@@ -258,6 +266,7 @@ class SVGGeoViewer {
     `;
 
     this.svgContainer = this.container.querySelector('.svg-geo-svg-container');
+    this.fullscreenBtn = this.container.querySelector('.svg-geo-fullscreen-btn');
     this.hoverInfo = this.container.querySelector('.svg-geo-hover-info');
     this.modal = this.options.modalContainer 
       ? document.querySelector(this.options.modalContainer) 
@@ -313,6 +322,14 @@ class SVGGeoViewer {
       document.addEventListener('click', () => this._hideContextMenu());
     }
 
+    // Bouton plein écran
+    if (this.fullscreenBtn) {
+      this.fullscreenBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleFullscreen();
+      });
+    }
+
     // Plein écran - Touche Échap
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.isFullscreen) {
@@ -345,6 +362,39 @@ class SVGGeoViewer {
         overflow: hidden;
         display: flex;
         flex-direction: column;
+      }
+
+      /* Bouton plein écran */
+      .svg-geo-fullscreen-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 1000;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+
+      .svg-geo-fullscreen-btn:hover {
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      }
+
+      .svg-geo-fullscreen-btn i {
+        font-size: 14px;
+        color: #333;
+      }
+
+      .svg-geo-viewer.fullscreen .svg-geo-fullscreen-btn i:before {
+        content: '\f066'; /* fa-compress */
       }
 
       .svg-geo-svg-container {
@@ -699,15 +749,25 @@ class SVGGeoViewer {
     // Vérifier les erreurs de parsing
     const parserError = doc.querySelector('parsererror');
     if (parserError) {
-      throw new Error('Invalid SVG format');
+      console.error('SVG parsing error:', parserError.textContent);
+      console.error('SVG content preview:', svgText.substring(0, 500));
+      throw new Error('Invalid SVG format: ' + parserError.textContent);
     }
 
     this.svgElement = doc.documentElement;
+    const rootTagName = this._getElementLocalName(this.svgElement);
+    
+    // Vérifier que c'est bien un élément SVG
+    if (!this.svgElement || rootTagName !== 'svg') {
+      console.error('Root element is not SVG:', this.svgElement?.tagName);
+      console.error('Content preview:', svgText.substring(0, 500));
+      throw new Error('Root element is not an SVG element');
+    }
 
-    // Vérifier la version SVG_GEO
+    // Vérifier la version SVG_GEO (optionnel, juste un warning)
     const version = this.svgElement.getAttribute('data-svg-geo-version');
     if (!version) {
-      console.warn('SVG_GEO version not specified');
+      console.warn('SVG_GEO version not specified - using as standard SVG');
     }
 
     // Extraire les métadonnées
@@ -715,6 +775,11 @@ class SVGGeoViewer {
 
     // Isoler les styles du SVG pour éviter les conflits avec la page
     this._isolateSVGStyles();
+
+    // Appliquer des attributs de présentation sur les symboles communs utilisés via <use>.
+    // Cela évite les rendus noirs par défaut quand les styles CSS embarqués ne s'appliquent
+    // pas correctement aux instances de symboles référencées.
+    this._normalizeReferencedSymbolStyles();
 
     // Injecter le SVG dans le conteneur
     this.svgContainer.innerHTML = '';
@@ -745,7 +810,7 @@ class SVGGeoViewer {
     this.svgElement.setAttribute('id', uniqueId);
 
     // Trouver toutes les balises <style> dans le SVG
-    const styleElements = this.svgElement.querySelectorAll('style');
+    const styleElements = this._findElementsByLocalName(this.svgElement, 'style');
     
     styleElements.forEach(styleEl => {
       let css = styleEl.textContent;
@@ -776,7 +841,7 @@ class SVGGeoViewer {
    */
   _extractMetadata() {
     // Métadonnées du document
-    const docMetadataElement = this.svgElement.querySelector('metadata#SVG_GEO_DOCUMENT');
+    const docMetadataElement = this._findElementByLocalNameAndId(this.svgElement, 'metadata', 'SVG_GEO_DOCUMENT');
     if (docMetadataElement) {
       try {
         this.documentMetadata = JSON.parse(docMetadataElement.textContent.trim());
@@ -792,7 +857,7 @@ class SVGGeoViewer {
     }
 
     // Données globales (business data)
-    const globalDataElement = this.svgElement.querySelector('metadata#SVG_GEO_DATA');
+    const globalDataElement = this._findElementByLocalNameAndId(this.svgElement, 'metadata', 'SVG_GEO_DATA');
     if (globalDataElement) {
       try {
         this.globalData = JSON.parse(globalDataElement.textContent.trim());
@@ -800,6 +865,84 @@ class SVGGeoViewer {
         console.error('Failed to parse SVG_GEO_DATA metadata:', e);
       }
     }
+  }
+
+  /**
+   * Retourne le nom local d'un élément XML/SVG, indépendamment du préfixe namespace.
+   * @private
+   */
+  _getElementLocalName(element) {
+    if (!element) {
+      return '';
+    }
+
+    if (element.localName) {
+      return element.localName.toLowerCase();
+    }
+
+    if (element.tagName) {
+      return String(element.tagName).split(':').pop().toLowerCase();
+    }
+
+    return '';
+  }
+
+  /**
+   * Recherche tous les éléments par nom local pour supporter les documents XML namespacés.
+   * @private
+   */
+  _findElementsByLocalName(root, localName) {
+    if (!root) {
+      return [];
+    }
+
+    return Array.from(root.getElementsByTagName('*')).filter(
+      (element) => this._getElementLocalName(element) === localName.toLowerCase()
+    );
+  }
+
+  /**
+   * Recherche un élément par nom local + id pour supporter metadata/style namespacés.
+   * @private
+   */
+  _findElementByLocalNameAndId(root, localName, id) {
+    return this._findElementsByLocalName(root, localName).find(
+      (element) => element.id === id
+    ) || null;
+  }
+
+  /**
+   * Force les styles de base des symboles fréquemment réutilisés par <use>.
+   * @private
+   */
+  _normalizeReferencedSymbolStyles() {
+    if (!this.svgElement) {
+      return;
+    }
+
+    const allElements = this.svgElement.getElementsByTagName('*');
+
+    Array.from(allElements).forEach((element) => {
+      const classAttr = element.getAttribute('class') || '';
+      if (!classAttr) {
+        return;
+      }
+
+      const classNames = classAttr.split(/\s+/).filter(Boolean);
+
+      if (classNames.includes('mark')) {
+        element.setAttribute('fill', 'none');
+        element.setAttribute('stroke', 'none');
+      }
+
+      if (classNames.includes('sym')) {
+        element.setAttribute('fill', 'none');
+        element.setAttribute('stroke', 'black');
+        element.setAttribute('stroke-opacity', '0.5');
+        element.setAttribute('stroke-linecap', 'round');
+        element.setAttribute('stroke-linejoin', 'round');
+      }
+    });
   }
 
   /**
@@ -812,7 +955,7 @@ class SVGGeoViewer {
     console.log(`📌 ${interactiveElements.length} éléments interactifs détectés`);
     
     if (interactiveElements.length === 0) {
-      console.warn('⚠️ Aucun élément interactif trouvé! Vérifiez que les éléments ont data-class ou data-ref');
+      console.log('ℹ️ Aucun élément interactif trouvé (pas de data-class ou data-ref)');
     }
     
     // Les événements sont maintenant attachés dans _initInteractions()
@@ -974,20 +1117,45 @@ class SVGGeoViewer {
     const dataRef = element.getAttribute('data-ref');
     const id = element.getAttribute('id');
 
-    let info = `<strong>${this.t(dataClass || 'Element')}</strong>`;
-    if (dataRef) info += ` - ${this.t('Ref')}: ${dataRef}`;
-    if (id) info += ` - ${this.t('ID')}: ${id}`;
+    let info = '';
+    let hasInfo = false;
 
     // Ajouter des infos rapides depuis data-props (filtrées)
     const propsStr = element.getAttribute('data-props');
     if (propsStr) {
       try {
         const props = this._filterFields(JSON.parse(propsStr));
-        if (props.material) info += ` - ${this.t('Material')}: ${this.t(props.material)}`;
-        if (props.condition) info += ` - ${this.t('Condition')}: ${this.t(props.condition)}`;
+        
+        // Afficher Type_composant en premier s'il existe
+        if (props.Type_composant || props.type_composant) {
+          info += `<strong>${props.Type_composant || props.type_composant}</strong>`;
+          hasInfo = true;
+        }
+        
+        // Afficher Nom ensuite s'il existe
+        if (props.Nom || props.nom) {
+          if (hasInfo) info += ' - ';
+          info += `${props.Nom || props.nom}`;
+          hasInfo = true;
+        }
+        
+        // Afficher Surface Pièce s'il existe
+        if (props['Surface Pièce'] || props['surface pièce'] || props.Surface_Piece || props.surface_piece) {
+          if (hasInfo) info += ' - ';
+          const surface = props['Surface Pièce'] || props['surface pièce'] || props.Surface_Piece || props.surface_piece;
+          info += `${surface} m²`;
+          hasInfo = true;
+        }
       } catch (e) {
         // Ignore parsing errors
       }
+    }
+    
+    // Si aucune info trouvée, afficher les infos par défaut
+    if (!hasInfo) {
+      info = `<strong>${this.t(dataClass || 'Element')}</strong>`;
+      // if (dataRef) info += ` - ${this.t('Ref')}: ${dataRef}`;
+      // if (id) info += ` - ${this.t('ID')}: ${id}`;
     }
 
     this.hoverInfo.innerHTML = info;
@@ -1237,8 +1405,15 @@ class SVGGeoViewer {
         // Déplier les propriétés de l'objet
         html += this._renderObjectProperties(value, depth + 1);
       } else {
-        // Convertir camelCase en espaces et capitaliser
-        const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+        // Une cle deja tout en majuscules (ex. un nom d'attribut metier
+        // venu tel quel de la source, "SURFACE FACADES BRUTE") est deja
+        // le libelle final : la convertir comme du camelCase inserait
+        // une espace devant CHAQUE lettre ("S U R F A C E ..."). Seule
+        // une cle qui contient au moins une minuscule (camelCase, ou
+        // snake_case comme "type_composant") est decoupee.
+        const label = /[a-z]/.test(key)
+          ? key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+          : key;
         const translatedLabel = this.t(label);
         
         // Ajouter au buffer
@@ -1513,7 +1688,7 @@ class SVGGeoViewer {
    * Centre et ajuste le SVG pour qu'il soit visible dans le conteneur
    * @private
    */
-  _fitToView() {
+  _fitToView(retryCount = 0) {
     if (!this.svgElement || !this.svgContainer) return;
     
     try {
@@ -1524,8 +1699,12 @@ class SVGGeoViewer {
       
       // Vérifier que le conteneur a des dimensions valides
       if (containerWidth === 0 || containerHeight === 0) {
-        console.warn('Conteneur sans dimensions, _fitToView() réessayera dans 100ms');
-        setTimeout(() => this._fitToView(), 100);
+        if (retryCount < 10) {
+          console.log('ℹ️ Conteneur sans dimensions, réessai ' + (retryCount + 1) + '/10');
+          setTimeout(() => this._fitToView(retryCount + 1), 100);
+        } else {
+          console.log('⚠️ Abandon fitToView après 10 tentatives (conteneur caché?)');
+        }
         return;
       }
       // Mesurer la taille réelle rendue du SVG
@@ -1534,8 +1713,12 @@ class SVGGeoViewer {
       const baseHeight = svgRect.height;
 
       if (baseWidth === 0 || baseHeight === 0) {
-        console.warn('SVG sans dimensions rendues, _fitToView() réessayera dans 100ms');
-        setTimeout(() => this._fitToView(), 100);
+        if (retryCount < 10) {
+          console.log('ℹ️ SVG sans dimensions, réessai ' + (retryCount + 1) + '/10');
+          setTimeout(() => this._fitToView(retryCount + 1), 100);
+        } else {
+          console.log('⚠️ Abandon fitToView après 10 tentatives');
+        }
         return;
       }
 
@@ -1685,6 +1868,11 @@ class SVGGeoViewer {
       🖼️ ${this.t('Copy as Image')} (PNG)
     </div>`;
     
+    // Enregistrer comme PNG
+    html += `<div class="svg-geo-context-menu-item" onclick="window.svgGeoViewerInstances?.get('${this.container.id}')?.downloadAsPNG()">
+      💾 ${this.t('Save as PNG')}
+    </div>`;
+    
     // Copier toutes les données en HTML
     html += `<div class="svg-geo-context-menu-item" onclick="window.svgGeoViewerInstances?.get('${this.container.id}')?.copyAllDataAsRTF()">
       📄 ${this.t('Copy All Data')} (HTML)
@@ -1809,16 +1997,42 @@ class SVGGeoViewer {
    * Entre en mode plein écran
    */
   enterFullscreen() {
-    if (this.container.requestFullscreen) {
-      this.container.requestFullscreen();
-    } else if (this.container.webkitRequestFullscreen) {
-      this.container.webkitRequestFullscreen();
-    } else if (this.container.msRequestFullscreen) {
-      this.container.msRequestFullscreen();
+    // Vérifier si on est dans une iframe
+    const iframe = window.frameElement;
+    if (iframe) {
+      // Sauvegarder les styles de l'iframe
+      this.savedIframeStyles = {
+        width: iframe.style.width || iframe.getAttribute('width'),
+        height: iframe.style.height || iframe.getAttribute('height'),
+        position: iframe.style.position,
+        top: iframe.style.top,
+        left: iframe.style.left,
+        zIndex: iframe.style.zIndex
+      };
+      
+      // Mettre l'iframe en plein écran
+      iframe.style.position = 'fixed';
+      iframe.style.top = '0';
+      iframe.style.left = '0';
+      iframe.style.width = '100vw';
+      iframe.style.height = '100vh';
+      iframe.style.zIndex = '9999';
+      
+      this.isFullscreen = true;
+      this.container.classList.add('fullscreen');
+    } else {
+      // Mode fullscreen API classique
+      if (this.container.requestFullscreen) {
+        this.container.requestFullscreen();
+      } else if (this.container.webkitRequestFullscreen) {
+        this.container.webkitRequestFullscreen();
+      } else if (this.container.msRequestFullscreen) {
+        this.container.msRequestFullscreen();
+      }
+      
+      this.isFullscreen = true;
+      this.container.classList.add('fullscreen');
     }
-    
-    this.isFullscreen = true;
-    this.container.classList.add('fullscreen');
     
     this.emit('fullscreen', { fullscreen: true });
   }
@@ -1827,16 +2041,35 @@ class SVGGeoViewer {
    * Sort du mode plein écran
    */
   exitFullscreen() {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen();
-    } else if (document.msExitFullscreen) {
-      document.msExitFullscreen();
+    // Vérifier si on est dans une iframe et qu'on a sauvegardé les styles
+    const iframe = window.frameElement;
+    if (iframe && this.savedIframeStyles) {
+      // Restaurer les styles de l'iframe
+      iframe.style.position = this.savedIframeStyles.position || '';
+      iframe.style.top = this.savedIframeStyles.top || '';
+      iframe.style.left = this.savedIframeStyles.left || '';
+      iframe.style.width = this.savedIframeStyles.width || '';
+      iframe.style.height = this.savedIframeStyles.height || '';
+      iframe.style.zIndex = this.savedIframeStyles.zIndex || '';
+      
+      // Réinitialiser la sauvegarde
+      this.savedIframeStyles = null;
+      
+      this.isFullscreen = false;
+      this.container.classList.remove('fullscreen');
+    } else {
+      // Mode fullscreen API classique
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+      
+      this.isFullscreen = false;
+      this.container.classList.remove('fullscreen');
     }
-    
-    this.isFullscreen = false;
-    this.container.classList.remove('fullscreen');
     
     this.emit('fullscreen', { fullscreen: false });
   }
@@ -2506,12 +2739,117 @@ class SVGGeoViewer {
         this.emit('copy', { success: true, format: 'png' });
         this.showNotification(this.t('Image copied to clipboard!') + ' • ' + this.t('Optimized for Word/PowerPoint'), 'success');
       } else {
-        throw new Error('Clipboard API not supported');
+        // Fallback: télécharger l'image si clipboard API non disponible
+        console.warn('Clipboard API not available, downloading instead');
+        const downloadUrl = URL.createObjectURL(pngBlob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `plan-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(downloadUrl);
+        this.emit('copy', { success: false, fallback: 'download' });
+        this.showNotification(this.t('Clipboard not available') + ' - ' + this.t('PNG downloaded'), 'info');
       }
     } catch (err) {
       console.error('Failed to copy as PNG:', err);
       this.emit('copy', { success: false, error: err, format: 'png' });
       this.showNotification(this.t('Failed to copy image'), 'error');
+    }
+  }
+
+  /**
+   * Download the SVG as PNG
+   */
+  async downloadAsPNG() {
+    if (!this.svgElement) {
+      console.error('No SVG loaded');
+      this.showNotification(this.t('Failed to download image'), 'error');
+      return;
+    }
+    
+    try {
+      // Clone le SVG comme dans copyAsPNG
+      const svgElement = this.svgElement;
+      const clonedSvg = svgElement.cloneNode(true);
+      
+      // Get bbox du SVG viewBox ou dimensions
+      const viewBox = svgElement.getAttribute('viewBox');
+      let width, height;
+      if (viewBox) {
+        const [, , vbWidth, vbHeight] = viewBox.split(' ').map(Number);
+        width = vbWidth;
+        height = vbHeight;
+      } else {
+        width = parseFloat(svgElement.getAttribute('width')) || svgElement.clientWidth;
+        height = parseFloat(svgElement.getAttribute('height')) || svgElement.clientHeight;
+      }
+      
+      // Définir une résolution élevée (minimum 2000px sur le côté le plus long)
+      const maxDim = Math.max(width, height);
+      const scale = maxDim > 0 ? Math.max(2, 2000 / maxDim) : 2;
+      const finalWidth = width * scale;
+      const finalHeight = height * scale;
+      
+      // Créer un canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = finalWidth;
+      canvas.height = finalHeight;
+      const ctx = canvas.getContext('2d');
+      
+      // Fond blanc
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, finalWidth, finalHeight);
+      
+      // Serialiser le SVG
+      const serializer = new XMLSerializer();
+      let svgString = serializer.serializeToString(clonedSvg);
+      
+      // Encoder en base64
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      // Charger l'image
+      const img = new Image();
+      
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.onerror = (err) => {
+          URL.revokeObjectURL(url);
+          reject(err);
+        };
+        img.src = url;
+      });
+      
+      // Convertir le canvas en Blob PNG
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          throw new Error('Failed to create PNG blob');
+        }
+        
+        // Créer un lien de téléchargement
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `plan-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(downloadUrl);
+        
+        this.emit('download', { success: true, format: 'png' });
+        this.showNotification(this.t('PNG downloaded'), 'success');
+      }, 'image/png');
+      
+    } catch (err) {
+      console.error('Failed to download as PNG:', err);
+      this.emit('download', { success: false, error: err, format: 'png' });
+      this.showNotification(this.t('Failed to download image'), 'error');
     }
   }
 
