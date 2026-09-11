@@ -1,521 +1,544 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SVG_GEO Viewer - Démonstration</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualiseur SVG_GEO 2.2</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #dcdfe4;
+    --text: #24292f;
+    --muted: #6b7280;
+    --accent: #2563eb;
+  }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: #f5f5f5;
-    }
+  * { box-sizing: border-box; }
 
-    .demo-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 20px;
-    }
+  html, body {
+    height: 100%;
+  }
 
-    .demo-header {
-      background: white;
-      padding: 24px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+  body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    overflow: hidden;
+  }
 
-    .demo-header h1 {
-      color: #333;
-      margin-bottom: 8px;
-    }
+  /* ---------- Barre d'outils ---------- */
+  .toolbar {
+    flex: 0 0 auto;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    z-index: 20;
+  }
 
-    .demo-header p {
-      color: #666;
-      font-size: 0.95rem;
-    }
+  .toolbar .filename {
+    font-weight: 600;
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-    .demo-controls {
-      background: white;
-      padding: 16px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
+  .toolbar .filename:empty::before {
+    content: "Aucun fichier";
+    color: var(--muted);
+    font-weight: 400;
+    font-style: italic;
+  }
 
-    .demo-controls label {
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: #555;
-    }
+  .toolbar .sep {
+    width: 1px;
+    height: 22px;
+    background: var(--border);
+    margin: 0 4px;
+  }
 
-    .demo-controls input[type="file"] {
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 0.9rem;
-    }
+  .toolbar .spacer { flex: 1; }
 
-    .demo-controls button {
-      padding: 10px 20px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: background 0.2s;
-    }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #fff;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
 
-    .demo-controls button:hover {
-      background: #0056b3;
-    }
+  .btn:hover:not(:disabled) {
+    background: #f0f3f8;
+    border-color: #b9c0ca;
+  }
 
-    .viewer-wrapper {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      overflow: hidden;
-      height: 600px;
-    }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
 
-    #viewer {
-      height: 100%;
-      overflow: hidden; /* Pas d'ascenseur sur le viewer */
-    }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
 
-    .demo-info {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      margin-top: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+  .btn-primary:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+  }
 
-    .demo-info h2 {
-      color: #333;
-      margin-bottom: 12px;
-      font-size: 1.25rem;
-    }
+  .btn-icon {
+    width: 28px;
+    padding: 0;
+    justify-content: center;
+    font-size: 14px;
+  }
 
-    .demo-info pre {
-      background: #f8f9fa;
-      padding: 12px;
-      border-radius: 4px;
-      overflow-x: auto;
-      font-size: 0.85rem;
-    }
+  #zoomLevel {
+    min-width: 52px;
+    text-align: center;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
 
-    .example-link {
-      display: inline-block;
-      margin-top: 12px;
-      padding: 8px 16px;
-      background: #28a745;
-      color: white;
-      text-decoration: none;
-      border-radius: 4px;
-      font-size: 0.9rem;
-      transition: background 0.2s;
-    }
+  /* ---------- Zone principale ---------- */
+  .main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    position: relative; /* référence du #dropzone : ne recouvre pas la barre d'outils */
+  }
 
-    .example-link:hover {
-      background: #218838;
-    }
-  </style>
+  #layersPanel {
+    flex: 0 0 220px;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  #layersPanel[hidden] { display: none; }
+
+  #layersPanel h2 {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  #layersList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+  }
+
+  #layersList label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    line-height: 1.3;
+  }
+
+  #layersList label:hover { background: #f0f3f8; }
+
+  #layersList input { cursor: pointer; margin: 0; }
+
+  .layers-actions {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .layers-actions .btn { flex: 1; justify-content: center; font-size: 12px; }
+
+  /* ---------- Viewer ---------- */
+  #viewer {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    background: #fff;
+  }
+
+  /* Le bouton plein écran de la bibliothèque utilise une icône Font Awesome
+     (non chargée ici) : la barre d'outils fournit son propre bouton. */
+  #viewer .svg-geo-fullscreen-btn { display: none; }
+
+  /* La bibliothèque ne style pas la barre de survol : on la place en bas. */
+  #viewer .svg-geo-hover-info {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    background: rgba(255, 255, 255, 0.94);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* ---------- Zone de dépôt ---------- */
+  #dropzone {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--bg);
+    color: var(--muted);
+    text-align: center;
+    z-index: 10;
+  }
+
+  #dropzone[hidden] { display: none; }
+
+  #dropzone.overlay {
+    background: rgba(37, 99, 235, 0.06);
+    pointer-events: none;
+  }
+
+  #dropzone .frame {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 40px 60px;
+    border: 2px dashed #c3cad4;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  #dropzone.dragging .frame {
+    border-color: var(--accent);
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--accent);
+  }
+
+  #dropzone .icon { font-size: 40px; line-height: 1; }
+  #dropzone .title { font-size: 15px; font-weight: 600; color: var(--text); }
+  #dropzone .hint { font-size: 12px; }
+</style>
 </head>
 <body>
-  <div class="demo-container">
-    <div class="demo-header">
-      <h1>🗺️ SVG_GEO Viewer - Démonstration</h1>
-      <p>Visualiseur interactif pour fichiers SVG enrichis selon la norme SVG_GEO v0.1</p>
+
+<div class="toolbar">
+  <span class="filename" id="fileName"></span>
+  <span class="sep"></span>
+  <button type="button" class="btn btn-primary" id="btnOpen">📂 Ouvrir…</button>
+  <span class="sep"></span>
+  <button type="button" class="btn" id="btnFit" disabled title="Vue complète">Vue complète</button>
+  <button type="button" class="btn btn-icon" id="btnZoomOut" disabled title="Zoom arrière">−</button>
+  <span id="zoomLevel">—</span>
+  <button type="button" class="btn btn-icon" id="btnZoomIn" disabled title="Zoom avant">+</button>
+  <span class="sep"></span>
+  <button type="button" class="btn btn-icon" id="btnFullscreen" disabled title="Plein écran (Échap pour sortir)">⛶</button>
+  <span class="spacer"></span>
+  <button type="button" class="btn" id="btnSaveSvg" disabled title="Enregistrer en SVG">💾 SVG</button>
+  <button type="button" class="btn" id="btnSavePng" disabled title="Enregistrer en PNG">💾 PNG</button>
+</div>
+
+<div class="main">
+  <aside id="layersPanel" hidden>
+    <h2>Couches</h2>
+    <div id="layersList"></div>
+    <div class="layers-actions">
+      <button type="button" class="btn" id="btnLayersAll">Tout</button>
+      <button type="button" class="btn" id="btnLayersNone">Aucune</button>
     </div>
+  </aside>
 
-    <div class="demo-controls">
-      <label for="file-input">Charger un fichier SVG_GEO :</label>
-      <input type="file" id="file-input" accept=".svg">
-      <button onclick="loadExampleSVG()">Charger l'exemple</button>
-      <button onclick="exportData()">Exporter les données</button>
-    </div>
+  <div id="viewer"></div>
 
-    <div class="viewer-wrapper">
-      <div id="viewer"></div>
-    </div>
-
-    <div class="demo-info">
-      <h2>📋 Fonctionnalités</h2>
-      <ul style="margin-left: 20px; color: #555; line-height: 1.8;">
-        <li><strong>Survol</strong> : Passez la souris sur un élément pour voir ses informations de base</li>
-        <li><strong>Clic</strong> : Cliquez sur un élément pour afficher toutes ses données dans une modal</li>
-        <li><strong>Zoom</strong> : Utilisez la molette de la souris pour zoomer/dézoomer</li>
-        <li><strong>Déplacement</strong> : Clic gauche maintenu pour déplacer le plan</li>
-        <li><strong>Menu contextuel</strong> : Clic droit pour accéder au menu (zoom, plein écran, couches, export, etc.)</li>
-        <li><strong>Plein écran</strong> : Touche Échap pour sortir du mode plein écran</li>
-        <li><strong>Couches</strong> : Utilisez les contrôles en bas ou le menu contextuel pour gérer les couches</li>
-        <li><strong>Export</strong> : Téléchargez en SVG ou copiez dans le presse-papier</li>
-        <li><strong>Événements</strong> : Écoutez les événements (zoom, pan, clic, etc.) via l'API</li>
-      </ul>
-      
-      <h2 style="margin-top: 24px;">🔧 API JavaScript</h2>
-      <pre>
-        
-// Créer une instance du viewer avec toutes les options
-const viewer = new SVGGeoViewer('viewer', {
-  showLayerControl: true,
-  showHoverInfo: true,
-  enableModal: true,
-  enableZoom: true,
-  enablePan: true,
-  enableContextMenu: true,
-  locale: 'fr', // ou 'en'
-  contextMenuItems: [
-    { label: 'Mon action', icon: '⚡' }
-  ]
-});
-
-// Charger un fichier SVG
-await viewer.loadSVG('mon-plan.svg');
-
-// Zoom et navigation
-viewer.setZoom(1.5); // Zoom 150%
-viewer.resetView(); // Réinitialiser
-
-// Plein écran
-viewer.enterFullscreen();
-viewer.exitFullscreen();
-viewer.toggleFullscreen();
-
-// Contrôler les couches
-viewer.toggleLayer('buildings', false); // Masquer
-viewer.setLayerOpacity('parcels', 0.5); // Semi-transparent
-
-// Export
-viewer.downloadSVG(); // Télécharger
-await viewer.copyToClipboard(); // Copier
-
-// Système d'événements
-viewer.on('zoom', (data) => {
-  console.log('Nouveau zoom:', data.zoom);
-});
-
-viewer.on('click', (data) => {
-  console.log('Élément cliqué:', data.element);
-});
-
-viewer.on('contextMenuItem', (data) => {
-  console.log('Item menu:', data.item);
-});
-
-// Traduction
-viewer.setLocale('en'); // Anglais
-viewer.setTranslations({ 'Building': 'Édifice' });</pre>
+  <div id="dropzone">
+    <div class="frame">
+      <div class="icon">🗺️</div>
+      <div class="title">Glissez un fichier SVG ici</div>
+      <div class="hint">ou cliquez pour parcourir vos fichiers</div>
     </div>
   </div>
+</div>
 
-  <script src="svg-geo-viewer.js"></script>
-  <script>
-    let viewer;
+<input type="file" id="fileInput" accept=".svg,image/svg+xml" hidden>
 
-    // Initialiser le viewer
-    document.addEventListener('DOMContentLoaded', () => {
-      viewer = new SVGGeoViewer('viewer', {
-        showLayerControl: true,
-        showHoverInfo: true,
-        enableModal: true,
-        enableZoom: true,
-        enablePan: true,
-        enableContextMenu: true,
-        contextMenuItems: [
-          { label: 'Action personnalisée 1', icon: '⚡' },
-          { label: 'Action personnalisée 2', icon: '🎨' }
-        ]
-      });
+<script src="svg-geo-viewer.js"></script>
+<script>
+(function () {
+  'use strict';
 
-      // Écouter les événements
-      viewer.on('loaded', (data) => {
-        console.log('SVG chargé:', data);
-      });
+  const viewer = new SVGGeoViewer('viewer', {
+    locale: 'fr',
+    showHoverInfo: true,
+    enableModal: true,
+    enableZoom: true,
+    enablePan: true,
+    enableContextMenu: true
+  });
 
-      viewer.on('zoom', (data) => {
-        console.log('Zoom:', data.zoom);
-      });
+  const els = {
+    fileInput: document.getElementById('fileInput'),
+    fileName: document.getElementById('fileName'),
+    dropzone: document.getElementById('dropzone'),
+    layersPanel: document.getElementById('layersPanel'),
+    layersList: document.getElementById('layersList'),
+    zoomLevel: document.getElementById('zoomLevel'),
+    actionButtons: [
+      'btnFit', 'btnZoomIn', 'btnZoomOut',
+      'btnFullscreen', 'btnSaveSvg', 'btnSavePng'
+    ].map((id) => document.getElementById(id))
+  };
 
-      viewer.on('pan', (data) => {
-        console.log('Pan:', data.x, data.y);
-      });
+  let hasSVG = false;
 
-      viewer.on('fullscreen', (data) => {
-        console.log('Mode plein écran:', data.fullscreen);
-      });
+  // ---------------------------------------------------------------- chargement
 
-      viewer.on('contextMenuItem', (data) => {
-        console.log('Item personnalisé cliqué:', data.item);
-        alert(`Vous avez cliqué sur: ${data.item.label}`);
-      });
+  function isSVGFile(file) {
+    return file && (/\.svg$/i.test(file.name) || file.type === 'image/svg+xml');
+  }
+
+  function openFile(file) {
+    if (!isSVGFile(file)) {
+      viewer.showNotification('Fichier ignoré : « ' + file.name + ' » n\'est pas un SVG', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onerror = function () {
+      viewer.showNotification('Lecture impossible : ' + file.name, 'error');
+    };
+
+    reader.onload = async function (e) {
+      try {
+        await viewer.loadSVGFromString(e.target.result);
+        hasSVG = true;
+        els.fileName.textContent = file.name;
+        els.dropzone.hidden = true;
+        els.actionButtons.forEach((btn) => { btn.disabled = false; });
+      } catch (err) {
+        console.error(err);
+        viewer.showNotification('SVG invalide : ' + err.message, 'error');
+      }
+    };
+
+    reader.readAsText(file);
+  }
+
+  // ------------------------------------------------------------ ouvrir/déposer
+
+  document.getElementById('btnOpen').addEventListener('click', () => els.fileInput.click());
+
+  els.dropzone.addEventListener('click', () => {
+    if (!hasSVG) els.fileInput.click();
+  });
+
+  els.fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    // Réinitialiser pour permettre de recharger le même fichier
+    e.target.value = '';
+    if (file) openFile(file);
+  });
+
+  let dragDepth = 0;
+
+  document.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragDepth++;
+    els.dropzone.hidden = false;
+    els.dropzone.classList.add('dragging');
+    if (hasSVG) els.dropzone.classList.add('overlay');
+  });
+
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+
+  document.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) endDrag();
+  });
+
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    endDrag();
+    const file = e.dataTransfer.files[0];
+    if (file) openFile(file);
+  });
+
+  function endDrag() {
+    els.dropzone.classList.remove('dragging', 'overlay');
+    els.dropzone.hidden = hasSVG;
+  }
+
+  // -------------------------------------------------------------- zoom & vues
+
+  function zoomBy(factor) {
+    const container = document.querySelector('#viewer .svg-geo-svg-container');
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+
+    const newZoom = Math.max(0.1, Math.min(10, viewer.zoom * factor));
+    const k = newZoom / viewer.zoom;
+
+    // Même correction que la molette : garder le centre du conteneur fixe
+    viewer.panX = cx - (cx - viewer.panX) * k;
+    viewer.panY = cy - (cy - viewer.panY) * k;
+    viewer.setZoom(newZoom);
+
+    updateZoomLevel();
+  }
+
+  function updateZoomLevel() {
+    els.zoomLevel.textContent = hasSVG ? Math.round(viewer.zoom * 100) + ' %' : '—';
+  }
+
+  document.getElementById('btnZoomIn').addEventListener('click', () => zoomBy(1.25));
+  document.getElementById('btnZoomOut').addEventListener('click', () => zoomBy(0.8));
+
+  document.getElementById('btnFit').addEventListener('click', () => {
+    viewer.resetView();
+    updateZoomLevel();
+  });
+
+  document.getElementById('btnFullscreen').addEventListener('click', () => viewer.toggleFullscreen());
+  document.getElementById('btnSaveSvg').addEventListener('click', () => viewer.downloadSVG());
+  document.getElementById('btnSavePng').addEventListener('click', () => viewer.downloadAsPNG());
+
+  viewer.on('zoom', updateZoomLevel);
+  viewer.on('reset', () => requestAnimationFrame(updateZoomLevel));
+
+  // ----------------------------------------------------------------- couches
+
+  function firstElementOfLayer(key) {
+    if (!viewer.svgElement) return null;
+    // Comparaison d'attribut plutôt que sélecteur : les noms de couches
+    // peuvent contenir des caractères qui casseraient querySelector.
+    for (const el of viewer.svgElement.querySelectorAll('[data-layer]')) {
+      if (el.getAttribute('data-layer') === key) return el;
+    }
+    return null;
+  }
+
+  function collectLayers() {
+    // 1) Couches déclarées dans <metadata id="SVG_GEO_DOCUMENT">
+    const declared = Object.entries(viewer.layers || {});
+    if (declared.length > 0) {
+      return declared
+        .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0))
+        .map(([key, layer]) => ({ key: key, label: (layer && layer.label) || key }));
+    }
+
+    // 2) Repli : valeurs distinctes de data-layer présentes dans le SVG
+    if (!viewer.svgElement) return [];
+
+    const names = new Set();
+    viewer.svgElement.querySelectorAll('[data-layer]').forEach((el) => {
+      const name = el.getAttribute('data-layer');
+      if (name) names.add(name);
     });
 
-    // Gestion du fichier uploadé
-    document.getElementById('file-input').addEventListener('change', async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
+    return Array.from(names)
+      .sort((a, b) => a.localeCompare(b, 'fr'))
+      .map((key) => ({ key: key, label: key }));
+  }
 
-      try {
-        const text = await file.text();
-        await viewer.loadSVGFromString(text);
-        console.log('SVG chargé avec succès');
-      } catch (error) {
-        alert('Erreur lors du chargement du fichier : ' + error.message);
-        console.error(error);
-      }
+  function buildLayersPanel() {
+    const layers = collectLayers();
+    els.layersList.textContent = '';
+
+    if (layers.length === 0) {
+      els.layersPanel.hidden = true;
+      return;
+    }
+
+    layers.forEach((layer) => {
+      const element = firstElementOfLayer(layer.key);
+      if (!element) return; // couche déclarée mais absente de ce plan
+
+      const label = document.createElement('label');
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = element.style.display !== 'none';
+      checkbox.dataset.layer = layer.key;
+      checkbox.addEventListener('change', () => viewer.toggleLayer(layer.key, checkbox.checked));
+
+      const text = document.createElement('span');
+      // textContent : les noms de couches proviennent du fichier
+      text.textContent = layer.label;
+
+      label.append(checkbox, text);
+      label.title = layer.label;
+      els.layersList.appendChild(label);
     });
 
-    // Charger l'exemple
-    async function loadExampleSVG() {
-      const exampleSVG = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg"
-     version="1.1"
-     viewBox="0 0 800 600"
-     data-svg-geo-version="0.2">
-
-  <metadata id="SVG_GEO_DOCUMENT">
-  {
-    "document": {
-      "schemaVersion": "0.2",
-      "vocabularyVersion": "0.1",
-      "created": "2025-11-27",
-      "lastModified": "2025-11-27",
-      "author": "Démo SVG_GEO",
-      "lang": "fr",
-      "defaultUnit": "m",
-      "coordinateReferenceSystem": "EPSG:2154"
-    },
-    "project": {
-      "projectName": "Plan exemple - Ancienne Mairie",
-      "projectId": "DEMO-001",
-      "source": "Demo",
-      "domain": "Heritage Architecture"
-    }
+    els.layersPanel.hidden = els.layersList.childElementCount === 0;
   }
-  </metadata>
 
-  <metadata id="SVG_GEO_DATA">
-  {
-    "B001": {
-      "class": "Building",
-      "attributes": {
-        "name": "Ancienne Mairie",
-        "yearOfConstruction": 1850,
-        "heritageStatus": "Protected",
-        "address": "15 Rue des Écoles, 75000 Paris"
-      }
-    },
-    "P001": {
-      "class": "Parcel",
-      "attributes": {
-        "cadastralRef": "AB-123-456",
-        "area": "450m2",
-        "owner": "Ville de Lens"
-      }
-    },
-    "layers": {
-      "background": {
-        "label": { "fr": "Fond de plan", "en": "Background" },
-        "defaultVisible": true,
-        "defaultOpacity": 1.0,
-        "order": 0
-      },
-      "parcels": {
-        "label": { "fr": "Parcelles", "en": "Parcels" },
-        "defaultVisible": true,
-        "defaultOpacity": 0.5,
-        "order": 10
-      },
-      "buildings": {
-        "label": { "fr": "Bâtiments", "en": "Buildings" },
-        "defaultVisible": true,
-        "defaultOpacity": 1.0,
-        "order": 20
-      },
-      "networks": {
-        "label": { "fr": "Réseaux", "en": "Networks" },
-        "defaultVisible": false,
-        "defaultOpacity": 1.0,
-        "order": 30
-      }
-    }
+  function setAllLayers(visible) {
+    els.layersList.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+      checkbox.checked = visible;
+      viewer.toggleLayer(checkbox.dataset.layer, visible);
+    });
   }
-  </metadata>
 
-  <!-- Fond de plan -->
-  <rect x="0" y="0" width="800" height="600" fill="#f0f0f0" data-layer="background"/>
-  <line x1="0" y1="300" x2="800" y2="300" stroke="#ddd" stroke-width="1" data-layer="background"/>
-  <line x1="400" y1="0" x2="400" y2="600" stroke="#ddd" stroke-width="1" data-layer="background"/>
+  document.getElementById('btnLayersAll').addEventListener('click', () => setAllLayers(true));
+  document.getElementById('btnLayersNone').addEventListener('click', () => setAllLayers(false));
 
-  <!-- Parcelle -->
-  <path d="M 100 150 L 500 150 L 500 450 L 100 450 Z"
-        fill="#e8f4e8"
-        stroke="#4a8c4a"
-        stroke-width="2"
-        data-class="Parcel"
-        data-ref="P001"
-        data-layer="parcels"
-        data-props='{"cadastralRef":"AB-123-456","area":"450m2"}' />
+  // ------------------------------------------------------------ après chargement
 
-  <!-- Bâtiment principal -->
-  <g id="building_01"
-     data-class="Building"
-     data-ref="B001"
-     data-level="LOD2"
-     data-layer="buildings"
-     data-props='{"source":"Demo2025"}'>
-
-    <!-- Mur nord -->
-    <path id="wall_north"
-          d="M 150 200 L 450 200 L 450 250 L 150 250 Z"
-          fill="#c0c0c0"
-          stroke="#666"
-          stroke-width="2"
-          data-class="WallSurface"
-          data-ref="B001-W01"
-          data-layer="buildings"
-          data-props='{"material":"Stone","height":"3.4m","thickness":"45cm","ifcType":"IfcWall","condition":"Good","conditionDate":"2025-11-27"}' />
-
-    <!-- Mur sud -->
-    <path id="wall_south"
-          d="M 150 350 L 450 350 L 450 400 L 150 400 Z"
-          fill="#b8b8b8"
-          stroke="#666"
-          stroke-width="2"
-          data-class="WallSurface"
-          data-ref="B001-W02"
-          data-layer="buildings"
-          data-props='{"material":"Stone","height":"3.4m","thickness":"45cm","ifcType":"IfcWall","condition":"Moderate","conditionDate":"2025-11-27"}' />
-
-    <!-- Mur est -->
-    <path id="wall_east"
-          d="M 450 250 L 450 350 L 400 350 L 400 250 Z"
-          fill="#a8a8a8"
-          stroke="#666"
-          stroke-width="2"
-          data-class="WallSurface"
-          data-ref="B001-W03"
-          data-layer="buildings"
-          data-props='{"material":"Brick","height":"3.4m","thickness":"30cm","ifcType":"IfcWall","condition":"Good"}' />
-
-    <!-- Mur ouest -->
-    <path id="wall_west"
-          d="M 150 250 L 200 250 L 200 350 L 150 350 Z"
-          fill="#a8a8a8"
-          stroke="#666"
-          stroke-width="2"
-          data-class="WallSurface"
-          data-ref="B001-W04"
-          data-layer="buildings"
-          data-props='{"material":"Brick","height":"3.4m","thickness":"30cm","ifcType":"IfcWall","condition":"Poor"}' />
-
-    <!-- Fenêtre 1 -->
-    <rect id="window_01"
-          x="220" y="270" width="50" height="60"
-          fill="#88ccff"
-          stroke="#444"
-          stroke-width="2"
-          data-class="Window"
-          data-ref="B001-WIN01"
-          data-layer="buildings"
-          data-props='{"frameMaterial":"Wood","glassType":"Single","ifcType":"IfcWindow","condition":"Moderate","yearInstalled":1850}' />
-
-    <!-- Fenêtre 2 -->
-    <rect id="window_02"
-          x="330" y="270" width="50" height="60"
-          fill="#88ccff"
-          stroke="#444"
-          stroke-width="2"
-          data-class="Window"
-          data-ref="B001-WIN02"
-          data-layer="buildings"
-          data-props='{"frameMaterial":"PVC","glassType":"Double","ifcType":"IfcWindow","condition":"Good","yearInstalled":2020}' />
-
-    <!-- Porte -->
-    <rect id="door_01"
-          x="280" y="355" width="40" height="45"
-          fill="#8b4513"
-          stroke="#444"
-          stroke-width="2"
-          data-class="Door"
-          data-ref="B001-DOOR01"
-          data-layer="buildings"
-          data-props='{"frameMaterial":"Oak","doorType":"Main entrance","ifcType":"IfcDoor","condition":"Good","yearInstalled":1850}' />
-
-    <!-- Toiture -->
-    <path id="roof_01"
-          d="M 130 200 L 300 150 L 470 200 Z"
-          fill="#d2691e"
-          stroke="#8b4513"
-          stroke-width="2"
-          data-class="RoofSurface"
-          data-ref="B001-R01"
-          data-layer="buildings"
-          data-props='{"material":"Tile","slope":"35deg","condition":"Moderate","yearRestored":2010}' />
-  </g>
-
-  <!-- Réseau électrique (caché par défaut) -->
-  <line x1="100" y1="150" x2="300" y2="300"
-        stroke="orange"
-        stroke-width="3"
-        data-class="Cable"
-        data-ref="NET-001"
-        data-layer="networks"
-        data-props='{"type":"Electrical","voltage":"220V","condition":"Good"}' />
-
-  <!-- Texte -->
-  <text x="300" y="480" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">
-    Ancienne Mairie
-  </text>
-</svg>`;
-
-      try {
-        await viewer.loadSVGFromString(exampleSVG);
-        console.log('Exemple chargé avec succès');
-      } catch (error) {
-        alert('Erreur lors du chargement de l\'exemple : ' + error.message);
-        console.error(error);
-      }
-    }
-
-    // Exporter les données
-    function exportData() {
-      if (!viewer) {
-        alert('Aucun SVG chargé');
-        return;
-      }
-
-      const data = {
-        documentMetadata: viewer.getDocumentMetadata(),
-        globalData: viewer.getGlobalData(),
-        buildings: viewer.getElementsByClass('Building'),
-        windows: viewer.getElementsByClass('Window'),
-        doors: viewer.getElementsByClass('Door'),
-        walls: viewer.getElementsByClass('WallSurface')
-      };
-
-      const json = JSON.stringify(data, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'svg-geo-export.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  </script>
+  viewer.on('loaded', () => {
+    buildLayersPanel();
+    // _fitToView() s'exécute dans un double requestAnimationFrame après 'loaded'
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      updateZoomLevel();
+      setTimeout(updateZoomLevel, 200); // au cas où le fit ait dû réessayer
+    }));
+  });
+})();
+</script>
 </body>
 </html>
